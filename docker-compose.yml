@@ -2,7 +2,7 @@ services:
   root-config:
     build: .
     ports:
-      - "8090:80"
+      - "8090:8080"
     volumes:
       - ./mfes:/config/mfes:ro
       # See ADR-0001: the layout shell is mounted, not baked into the

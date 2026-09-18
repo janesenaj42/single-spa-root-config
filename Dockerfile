@@ -24,7 +24,9 @@ COPY scripts/build-mfe-config.js ./scripts/build-mfe-config.js
 COPY scripts/build-keycloak-config.js ./scripts/build-keycloak-config.js
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh && \
+    mkdir -p /run/nginx && \
+    chown -R nginx:nginx /usr/share/nginx/html /var/lib/nginx /var/log/nginx /run/nginx
 
 ENV MFE_CONFIG_DIR=/config/mfes
 ENV MFE_OUTPUT_FILE=/usr/share/nginx/html/mfes.json
@@ -32,5 +34,8 @@ ENV KEYCLOAK_OUTPUT_FILE=/usr/share/nginx/html/keycloak.json
 # KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID are required and have no
 # defaults - the container fails fast at startup if they're not supplied.
 
-EXPOSE 80
+# Non-root: Trivy flagged the missing USER directive (DS-0002). 8080, not
+# 80, since binding <1024 needs root.
+USER nginx
+EXPOSE 8080
 ENTRYPOINT ["/entrypoint.sh"]
