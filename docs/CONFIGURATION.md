@@ -9,7 +9,7 @@ vocabulary and [docs/adr/](adr/) for why things are built this way.
 ```yaml
 name: assets                 # unique app name
 entry: "https://cdn.example.com/assets/assets.js"   # SystemJS bundle URL, loaded by the BROWSER
-container: "#main"           # CSS selector the app mounts into (auto-created if missing - see Layout patterns)
+container: "#wh-assets-overlay"  # CSS selector the app mounts into (auto-created if missing - see Layout patterns)
 activeWhen: "/assets"        # single-spa route prefix (string or array)
 public: false                # optional, default false — see Authentication section
 requiredRoles:                # optional — Keycloak realm roles, ANY of which grant access
@@ -31,23 +31,42 @@ broken shell.
 
 ## Layout patterns
 
-The four warehouse MFEs deliberately exercise four different ways an MFE
+The five warehouse MFEs deliberately exercise five different ways an MFE
 can occupy the page, to prove the config-driven approach isn't just for
 "one route = one full page":
 
 | Pattern | MFE | `container` | `activeWhen` |
 |---|---|---|---|
+| Full-viewport base layer, z-index 0 | `basemap` | `#wh-basemap` (**not** in `index.html`) | `/` (always) |
 | Top bar, in normal document flow | `navbar` | `#navbar` (pre-defined in `index.html`) | `/` (always) |
-| Full page | `assets` | `#main` (pre-defined in `index.html`) | `/assets` |
+| Dismissible full-screen overlay | `assets` | `#wh-assets-overlay` (**not** in `index.html`) | `/assets` |
 | Floating drawer, 25% width | `admin-panel` | `#wh-admin-drawer` (**not** in `index.html`) | `/` (always mounted; visibility toggled internally, not by route) |
 | Floating widget (bottom-right) | `comms` | `#wh-comms-widget` (**not** in `index.html`) | `/` (always) |
 
-The two floating ones prove [ADR-0002](adr/0002-auto-vivify-mfe-containers.md):
+Four of these five prove [ADR-0002](adr/0002-auto-vivify-mfe-containers.md):
 root-config creates a missing container itself (appended to
 `document.body`) rather than requiring every MFE's mount point to
-pre-exist in `index.html`. Whether something reads as "full page" vs.
-"floating drawer" vs. "floating bubble" is entirely the MFE's own CSS
-(`position: fixed` + width/placement) — root-config doesn't know or care.
+pre-exist in `index.html` — `navbar` is the only one that still needs a
+pre-defined region, because it must sit in normal document flow relative
+to other static content. Whether something reads as a full-viewport
+backdrop vs. a full-screen overlay vs. a floating drawer vs. a floating
+bubble is entirely the MFE's own CSS (`position: fixed` + z-index +
+width/placement) — root-config doesn't know or care; it only guarantees
+the element exists.
+
+The **basemap** stays mounted underneath everything (z-index 0) rather
+than being folded into the navbar's own markup, even though visually it
+reads as "the navbar's background" — keeping it a separate MFE means it
+can be swapped, sized, or removed independently, and demonstrates that a
+"layer" is just another MFE, not a special root-config concept.
+
+The **assets** full-screen overlay (`z-index: 500`) covers the navbar and
+basemap entirely while open — a genuine takeover, not an in-flow content
+panel — and is dismissed by its own close button (a plain `<a href="/">`,
+using the same single-spa anchor-click routing every other in-app link
+uses) or any other in-app navigation away from `/assets`. It's rendered
+below the admin drawer and comms widget (`z-index: 1000`), so those stay
+usable while Assets is open.
 
 The admin drawer's open/close trigger lives in the **navbar** MFE, not in
 the admin-panel MFE itself — a deliberate test of cross-MFE coordination,
@@ -135,7 +154,7 @@ CORE (the actual root-config engine — this is what you'd extract into your own
 └── public/                     The layout shell (index.html) + Keycloak's silent-check-sso.html.
 
 EXAMPLES (throwaway scaffolding for the demo — not part of the product)
-├── examples/demo-mfes/         Four warehouse-themed MFEs exercising all 4 layout patterns.
+├── examples/demo-mfes/         Five warehouse-themed MFEs exercising all 5 layout patterns.
 ├── examples/keycloak/          Realm export auto-imported by the demo's Keycloak container.
 └── docker-compose.yml          Wires core + examples into one runnable stack (repo root, not under examples/,
                                  since it's the thing you run - but everything it points at under examples/ is disposable).

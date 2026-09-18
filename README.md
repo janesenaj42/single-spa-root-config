@@ -8,8 +8,9 @@ route, and who's allowed to see it (public / any logged-in user /
 role-gated via Keycloak).
 
 Fully containerized. The included demo is a warehouse-ops shell
-exercising 4 layout patterns (top navbar, full page, floating drawer,
-floating widget) against a real Keycloak instance.
+exercising 5 layout patterns (full-viewport base layer, top navbar,
+dismissible full-screen overlay, floating drawer, floating widget)
+against a real Keycloak instance.
 
 ## Quick start
 
@@ -20,15 +21,18 @@ docker compose up --build
 Give Keycloak ~10-15s to finish importing its demo realm, then open
 **http://localhost:8090**.
 
+The warehouse floor plan is always visible as a base layer behind
+everything else, with worker dots that drift every couple of seconds.
+
 | Try it as | Password | You'll see |
 |---|---|---|
-| (stay logged out) | — | navbar + comms bubble |
-| **bob** | `password` | + Assets page (`/assets`) |
-| **alice** | `password` | + Assets, + an "Admin" button that opens a drawer |
+| (stay logged out) | — | base map + navbar + comms bubble |
+| **bob** | `password` | + "Assets" opens a closeable, full-screen grid |
+| **alice** | `password` | + an "Admin" button that opens a drawer |
 
-| Logged out | bob (authenticated) | alice (admin) |
+| Base map + navbar | Assets, full-screen (bob) | Admin drawer + comms open (alice) |
 |---|---|---|
-| ![Logged out: navbar + comms bubble only](docs/screenshots/01-logged-out.png) | ![bob: navbar + Assets grid](docs/screenshots/02-bob-assets.png) | ![alice: navbar + Assets + Admin button](docs/screenshots/03-alice-assets.png) |
+| ![Logged out: base map, navbar, comms bubble](docs/screenshots/01-logged-out.png) | ![bob: full-screen Assets grid with a close button](docs/screenshots/02-bob-assets.png) | ![alice: admin drawer and comms panel open together over the base map](docs/screenshots/05-alice-comms-open.png) |
 
 To see a config-only change take effect, edit a file under `mfes/` then
 `docker compose restart root-config` — no rebuild needed, `mfes/` is a
@@ -36,8 +40,11 @@ mounted volume, not baked into the image.
 
 ## How it works
 
-```
-mfes/*.yaml  --(build-mfe-config.js)-->  dist/mfes.json  --(fetch)-->  root-config.js  --(registerApplication)-->  single-spa
+```mermaid
+flowchart LR
+    A["mfes/*.yaml"] -->|build-mfe-config.js| B["dist/mfes.json"]
+    B -->|fetch| C["root-config.js"]
+    C -->|registerApplication| D["single-spa"]
 ```
 
 `root-config.js` is generic — it has no knowledge of any specific MFE,
@@ -52,7 +59,7 @@ One YAML file per MFE, in `mfes/`:
 ```yaml
 name: assets                 # unique app name
 entry: "https://cdn.example.com/assets/assets.js"   # SystemJS bundle URL, loaded by the BROWSER
-container: "#main"           # CSS selector the app mounts into (auto-created if missing)
+container: "#wh-assets-overlay"  # CSS selector the app mounts into (auto-created if missing)
 activeWhen: "/assets"        # single-spa route prefix (string or array)
 public: false                # optional, default false — see Authentication below
 requiredRoles:                # optional — Keycloak realm roles, ANY of which grant access
@@ -66,7 +73,7 @@ browser can reach — not just something reachable inside a Docker network.
 `container` doesn't have to already exist in `index.html`: if it's
 missing, root-config creates it for you, which is how floating
 widgets/drawers work with no layout-file changes. Full reference,
-including the four layout patterns this enables:
+including the five layout patterns this enables:
 [docs/CONFIGURATION.md](docs/CONFIGURATION.md#mfe-config-reference).
 
 ## Authentication & role-based visibility
@@ -106,7 +113,7 @@ updates `CHANGELOG.md` via `commit-and-tag-version`. See
 ## Learn more
 
 - **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** — the exhaustive
-  version of the two sections above, plus the four layout patterns
+  version of the two sections above, plus the five layout patterns
   explained, the demo Keycloak realm's details, the repo's
   core-vs-examples layout, adding a real MFE, and the RepoWise/OpenWiki
   documentation tooling.
