@@ -10,7 +10,10 @@
     "build:keycloak-config": "node scripts/build-keycloak-config.js",
     "build": "npm run build:js && npm run build:config",
     "serve": "npx http-server dist -p 8080 -c-1",
-    "test": "node --test test/"
+    "test": "node --test test/",
+    "lint": "eslint .",
+    "prepare": "husky",
+    "release": "commit-and-tag-version"
   },
   "dependencies": {
     "single-spa": "^6.0.1",
@@ -19,6 +22,13 @@
     "keycloak-js": "^25.0.6"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0"
+    "esbuild": "^0.24.0",
+    "eslint": "^9.15.0",
+    "@eslint/js": "^9.15.0",
+    "globals": "^15.12.0",
+    "husky": "^9.1.7",
+    "@commitlint/cli": "^19.6.0",
+    "@commitlint/config-conventional": "^19.6.0",
+    "commit-and-tag-version": "^12.5.0"
   }
 }
