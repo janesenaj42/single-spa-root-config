@@ -14,7 +14,17 @@ RUN npm run build:js
 
 # ---- runtime: nginx serving the bundle, node available to regenerate mfes.json ----
 FROM node:20-alpine
-RUN apk add --no-cache nginx
+RUN apk update && apk upgrade --no-cache && \
+    # Base image's baked-in Alpine package snapshot can lag behind what's
+    # actually available (openssl 3.5.6-r0 when 3.5.7/3.5.8 already fix
+    # known CVEs) - explicit upgrade instead of trusting the snapshot.
+    apk add --no-cache nginx && \
+    # npm/npx/corepack are never invoked at runtime here (only `node` and
+    # `nginx` are) - removing them drops ~20 Trivy findings in npm's own
+    # bundled deps (tar, minimatch, glob, etc.) that describe risk in code
+    # this image never executes.
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
