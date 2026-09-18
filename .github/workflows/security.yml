@@ -14,14 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy filesystem scan (npm/pip deps, Dockerfile, misconfigs)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
           format: sarif
           output: trivy-fs.sarif
           severity: CRITICAL,HIGH
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
@@ -35,13 +35,13 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -t single-spa-root-config:trivy .
       - name: Trivy image scan (OS packages in the built root-config image)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: single-spa-root-config:trivy
           format: sarif
           output: trivy-image.sarif
           severity: CRITICAL,HIGH
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-image.sarif
           category: trivy-image
@@ -58,7 +58,7 @@ jobs:
       # p/ci is a public registry ruleset - no Semgrep account/token needed
       # (unlike --config=auto, which wants one for tailored rule selection).
       - run: semgrep scan --config=p/ci --sarif --output=semgrep.sarif
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
           category: semgrep
