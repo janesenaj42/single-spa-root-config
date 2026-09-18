@@ -6,6 +6,28 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Always produce SARIF, even if lint fails below, so findings show
+      # up under Security > Code scanning / as PR annotations either way.
+      - run: npm run lint:sarif
+        continue-on-error: true
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: eslint-results.sarif
+          category: eslint
+      - run: npm run lint
+
   test:
     runs-on: ubuntu-latest
     steps:

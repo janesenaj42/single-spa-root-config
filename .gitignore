@@ -12,3 +12,6 @@ dist/
 
 # session-specific lock file, meaningless outside the machine that wrote it
 .claude/scheduled_tasks.lock
+
+# local eslint/trivy/semgrep SARIF test output
+*.sarif
