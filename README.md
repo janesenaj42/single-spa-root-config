@@ -51,14 +51,13 @@ error instead.
 ## Authentication & role-based visibility (Keycloak)
 
 Which MFEs are even eligible to mount now also depends on who's logged in,
-not just the URL. Each YAML file can set:
+not just the URL. Each MFE is one of three tiers, set in its YAML file:
 
-- `public: true` — always eligible (subject to `activeWhen` still matching).
-  Use this for shell pieces like the navbar that need to render a
-  login/logout button for signed-out visitors too.
-- `requiredRoles: [admin, finance]` — only eligible if the signed-in user
-  holds at least one of these Keycloak **realm roles**. Omit it (with
-  `public` unset/false) to mean "any authenticated user, no specific role."
+| Tier | YAML | Example |
+|---|---|---|
+| Public | `public: true` | `navbar` — always mounts, shows a Login/Logout button even for signed-out visitors |
+| All authenticated users | neither `public` nor `requiredRoles` set | `dashboard` — mounts for anyone logged in, regardless of role |
+| Selected users by role | `requiredRoles: [admin, finance]` | `settings` — only mounts if the user holds at least one of these Keycloak **realm roles** |
 
 `root-config.js` wraps each app's `activeWhen` in a function that checks,
 in order: the route still has to match, then `public` short-circuits to
@@ -77,9 +76,33 @@ The Keycloak client config (`url`, `realm`, `clientId`) is generated at
 container startup from `KEYCLOAK_URL` / `KEYCLOAK_REALM` /
 `KEYCLOAK_CLIENT_ID` env vars into `keycloak.json` — same "no rebuild
 needed" pattern as `mfes.json`. `KEYCLOAK_URL` must be reachable from the
-**browser** (keycloak-js runs client-side), and in Keycloak's admin console
-that client needs the root-config's origin in both "Valid redirect URIs"
-and "Web origins".
+**browser** (keycloak-js runs client-side).
+
+### Keycloak in the demo compose stack
+
+`docker-compose.yml` runs a real Keycloak (`quay.io/keycloak/keycloak`) on
+**8180** (not 8080, so it doesn't collide with an unrelated Keycloak you
+might already have running on this machine), and imports
+`keycloak/realm-export.json` on startup — no manual admin-console setup
+needed for the demo. That realm (`root-config-demo`) pre-seeds:
+
+- A public client `root-config` with redirect URI / web origin
+  `http://localhost:8090/*` (PKCE, no client secret — this is a browser SPA).
+- Two realm roles: `user`, `admin`.
+- Two demo users (password `password` for both):
+  - **alice** — roles `user` + `admin` → sees navbar, dashboard, *and* settings.
+  - **bob** — role `user` only → sees navbar and dashboard, not settings.
+  - Logged out entirely → sees only the navbar.
+
+`directAccessGrantsEnabled` is turned on for that client purely so the
+setup can be sanity-checked with `curl` (password grant) without a
+browser; the app itself uses the standard authorization-code + PKCE flow.
+The Keycloak admin console is at http://localhost:8180 (`admin` / `admin`
+from `KC_BOOTSTRAP_ADMIN_USERNAME` / `KC_BOOTSTRAP_ADMIN_PASSWORD`) if you
+want to inspect or extend the realm. This whole realm is thrown together
+for demo purposes only — for a real deployment, point `KEYCLOAK_URL` /
+`KEYCLOAK_REALM` / `KEYCLOAK_CLIENT_ID` at your actual Keycloak instead
+of running one in this compose file.
 
 ## Run the demo
 
@@ -87,19 +110,15 @@ and "Web origins".
 docker compose up --build
 ```
 
-Open http://localhost:8090 (root-config no longer uses 8080, so it doesn't
-collide with a Keycloak instance running there). Before it'll work you need
-a real Keycloak reachable at the `KEYCLOAK_URL`/`KEYCLOAK_REALM`/
-`KEYCLOAK_CLIENT_ID` set in `docker-compose.yml` — point those at your
-existing Keycloak, create/confirm a client for this app, and set its
-redirect URI / web origin to `http://localhost:8090/*`.
+Give Keycloak ~10-15s to finish starting and importing the realm before
+opening http://localhost:8090 — check `docker compose logs keycloak` for
+"Realm 'root-config-demo' imported" if the login redirect errors out.
 
 The navbar MFE is `public`, so it always mounts and shows a Login/Logout
-button. "Dashboard" requires being logged in (any role); "Settings"
-additionally requires the `admin` realm role — log in as a user without
-that role and the Settings link still routes, but nothing mounts into
-`#main`. Three throwaway nginx containers (`navbar-mfe`, `dashboard-mfe`,
-`settings-mfe`) stand in for real MFE deployments.
+button. Log in as **bob**/`password` to see the Dashboard but not Settings;
+log in as **alice**/`password` to see both. Three throwaway nginx
+containers (`navbar-mfe`, `dashboard-mfe`, `settings-mfe`) stand in for real
+MFE deployments.
 
 To see config-only changes take effect: edit e.g. `mfes/settings.yaml`
 (change `activeWhen` or `customProps`), then:
