@@ -27,7 +27,7 @@ export default [
   },
   {
     // Node tooling: build/config scripts and tests.
-    files: ['scripts/**/*.js', 'build.js', 'test/**/*.js', 'eslint.config.js', 'commitlint.config.js'],
+    files: ['scripts/**/*.js', 'build.js', 'bootstrap.js', 'test/**/*.js', 'eslint.config.js', 'commitlint.config.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
