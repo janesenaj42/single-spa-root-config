@@ -1,7 +1,9 @@
-const esbuild = require('esbuild');
-const fs = require('fs');
-const path = require('path');
+import esbuild from 'esbuild';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, 'dist');
 fs.mkdirSync(distDir, { recursive: true });
 
@@ -15,5 +17,9 @@ esbuild.buildSync({
 });
 
 fs.copyFileSync(path.join(__dirname, 'public', 'index.html'), path.join(distDir, 'index.html'));
+fs.copyFileSync(
+  path.join(__dirname, 'public', 'silent-check-sso.html'),
+  path.join(distDir, 'silent-check-sso.html')
+);
 
-console.log('Bundled src/root-config.js -> dist/root-config.js and copied index.html');
+console.log('Bundled src/root-config.js -> dist/root-config.js and copied static files');

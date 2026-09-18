@@ -18,6 +18,7 @@ RUN apk add --no-cache nginx
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./package.json
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY scripts/build-mfe-config.js ./scripts/build-mfe-config.js
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf

@@ -6,15 +6,62 @@
  *   MFE_CONFIG_DIR  - directory of *.yaml files (default: ../mfes)
  *   MFE_OUTPUT_FILE - where to write the merged JSON (default: ../dist/mfes.json)
  */
-const fs = require('fs');
-const path = require('path');
-const yaml = require('js-yaml');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import yaml from 'js-yaml';
+import Ajv from 'ajv';
 
-const CONFIG_DIR = process.env.MFE_CONFIG_DIR || path.join(__dirname, '..', 'mfes');
-const OUTPUT_FILE = process.env.MFE_OUTPUT_FILE || path.join(__dirname, '..', 'dist', 'mfes.json');
-const REQUIRED_FIELDS = ['name', 'entry', 'activeWhen'];
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function loadConfigs(dir) {
+const ajv = new Ajv({ allErrors: true });
+const validateSchema = ajv.compile({
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'entry', 'activeWhen'],
+  properties: {
+    name: { type: 'string', minLength: 1 },
+    entry: { type: 'string', minLength: 1 },
+    container: { type: 'string', minLength: 1 },
+    activeWhen: {
+      oneOf: [
+        { type: 'string', minLength: 1 },
+        { type: 'array', items: { type: 'string', minLength: 1 }, minItems: 1 },
+      ],
+    },
+    // If true, the app is mounted regardless of auth state (e.g. a shell navbar).
+    // If false/omitted, the app only activates for an authenticated user, and
+    // only if the user holds at least one of requiredRoles (when specified).
+    public: { type: 'boolean' },
+    requiredRoles: { type: 'array', items: { type: 'string', minLength: 1 } },
+    customProps: { type: 'object' },
+  },
+});
+
+/**
+ * Validates a parsed YAML document against the MFE config schema and
+ * returns the normalized app object (defaults applied). Throws on
+ * schema violations. `filename` is only used to make error messages
+ * traceable to a source file.
+ */
+export function validateAndNormalize(raw, filename) {
+  if (!validateSchema(raw)) {
+    const details = ajv.errorsText(validateSchema.errors, { separator: '; ' });
+    throw new Error(`Invalid config in ${filename}: ${details}`);
+  }
+
+  return {
+    name: raw.name,
+    entry: raw.entry,
+    container: raw.container || '#app',
+    activeWhen: raw.activeWhen,
+    public: Boolean(raw.public),
+    requiredRoles: raw.requiredRoles || [],
+    customProps: raw.customProps || {},
+  };
+}
+
+export function loadConfigs(dir) {
   if (!fs.existsSync(dir)) {
     throw new Error(`MFE config directory not found: ${dir}`);
   }
@@ -40,39 +87,26 @@ function loadConfigs(dir) {
       throw new Error(`Failed to parse ${file}: ${err.message}`);
     }
 
-    validate(raw, file);
+    const app = validateAndNormalize(raw, file);
 
-    if (seenNames.has(raw.name)) {
-      throw new Error(`Duplicate MFE name "${raw.name}" (found again in ${file})`);
+    if (seenNames.has(app.name)) {
+      throw new Error(`Duplicate MFE name "${app.name}" (found again in ${file})`);
     }
-    seenNames.add(raw.name);
+    seenNames.add(app.name);
 
-    apps.push({
-      name: raw.name,
-      entry: raw.entry,
-      container: raw.container || '#app',
-      activeWhen: raw.activeWhen,
-      customProps: raw.customProps || {},
-    });
+    apps.push(app);
   }
 
   return apps;
 }
 
-function validate(raw, file) {
-  if (!raw || typeof raw !== 'object') {
-    throw new Error(`${file} did not parse to an object`);
-  }
-  for (const key of REQUIRED_FIELDS) {
-    const value = raw[key];
-    const missing = value === undefined || value === null || value === '';
-    if (missing) {
-      throw new Error(`Missing required field "${key}" in ${file}`);
-    }
-  }
-}
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
+  const CONFIG_DIR = process.env.MFE_CONFIG_DIR || path.join(__dirname, '..', 'mfes');
+  const OUTPUT_FILE = process.env.MFE_OUTPUT_FILE || path.join(__dirname, '..', 'dist', 'mfes.json');
 
-const apps = loadConfigs(CONFIG_DIR);
-fs.mkdirSync(path.dirname(OUTPUT_FILE), { recursive: true });
-fs.writeFileSync(OUTPUT_FILE, JSON.stringify(apps, null, 2));
-console.log(`Wrote ${apps.length} MFE config(s) from ${CONFIG_DIR} to ${OUTPUT_FILE}`);
+  const apps = loadConfigs(CONFIG_DIR);
+  fs.mkdirSync(path.dirname(OUTPUT_FILE), { recursive: true });
+  fs.writeFileSync(OUTPUT_FILE, JSON.stringify(apps, null, 2));
+  console.log(`Wrote ${apps.length} MFE config(s) from ${CONFIG_DIR} to ${OUTPUT_FILE}`);
+}
