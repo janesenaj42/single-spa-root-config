@@ -1,0 +1,6 @@
+[project]
+name = "single-spa-root-config"
+version = "0.1.0"
+description = "Documentation tooling (RepoWise) for the single-spa root config repo"
+requires-python = ">=3.12"
+dependencies = ["repowise==0.51.0"]
