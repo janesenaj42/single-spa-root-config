@@ -19,6 +19,9 @@ name: dashboard              # unique app name
 entry: "https://cdn.example.com/dashboard/dashboard.js"   # SystemJS bundle URL, loaded by the BROWSER
 container: "#main"           # CSS selector the app mounts into
 activeWhen: "/dashboard"     # single-spa route prefix (string or array)
+public: false                # optional, default false — see Authentication section
+requiredRoles:                # optional — Keycloak realm roles, ANY of which grant access
+  - admin
 customProps:                 # optional, passed through to the MFE
   theme: dark
 ```
@@ -28,9 +31,11 @@ address the user's browser can reach — not just something reachable inside
 a Docker network (see the demo compose file, which publishes each demo MFE
 on `localhost`).
 
-The merge step (`scripts/build-mfe-config.js`) validates required fields
-(`name`, `entry`, `activeWhen`) and fails the build/startup on duplicate
-names or malformed YAML, so a bad config can't silently break the shell.
+The merge step (`scripts/build-mfe-config.js`) validates every file against
+an `ajv` JSON schema and fails the build/startup on duplicate names or
+malformed YAML (unknown fields, wrong types, missing required fields), so a
+bad config can't silently break the shell — you get a filename + field-level
+error instead.
 
 ## Why this split
 
@@ -43,17 +48,58 @@ names or malformed YAML, so a bad config can't silently break the shell.
 - **root-config.js is generic.** It has no knowledge of any specific MFE —
   it just loops over whatever `mfes.json` contains.
 
+## Authentication & role-based visibility (Keycloak)
+
+Which MFEs are even eligible to mount now also depends on who's logged in,
+not just the URL. Each YAML file can set:
+
+- `public: true` — always eligible (subject to `activeWhen` still matching).
+  Use this for shell pieces like the navbar that need to render a
+  login/logout button for signed-out visitors too.
+- `requiredRoles: [admin, finance]` — only eligible if the signed-in user
+  holds at least one of these Keycloak **realm roles**. Omit it (with
+  `public` unset/false) to mean "any authenticated user, no specific role."
+
+`root-config.js` wraps each app's `activeWhen` in a function that checks,
+in order: the route still has to match, then `public` short-circuits to
+true, otherwise the user must be authenticated and hold a matching role.
+Route matching and auth/role checks are independent — a route match with a
+failed role check just means that container stays empty on that URL, it
+doesn't error.
+
+Auth itself is handled once, centrally, by `src/auth.js` using `keycloak-js`
+— individual MFEs never talk to Keycloak directly. Every MFE receives
+`isAuthenticated()`, `getToken()`, `login()`, `logout()` via `customProps`,
+so an MFE that needs to call a protected API can grab the bearer token
+without knowing anything about your Keycloak setup.
+
+The Keycloak client config (`url`, `realm`, `clientId`) is generated at
+container startup from `KEYCLOAK_URL` / `KEYCLOAK_REALM` /
+`KEYCLOAK_CLIENT_ID` env vars into `keycloak.json` — same "no rebuild
+needed" pattern as `mfes.json`. `KEYCLOAK_URL` must be reachable from the
+**browser** (keycloak-js runs client-side), and in Keycloak's admin console
+that client needs the root-config's origin in both "Valid redirect URIs"
+and "Web origins".
+
 ## Run the demo
 
 ```
 docker compose up --build
 ```
 
-Open http://localhost:8080. The navbar MFE is always mounted; click
-"Dashboard" / "Settings" to see `single-spa` route between the other two
-MFEs, each defined purely by a YAML file in `mfes/`. Three throwaway nginx
-containers (`navbar-mfe`, `dashboard-mfe`, `settings-mfe`) stand in for real
-MFE deployments.
+Open http://localhost:8090 (root-config no longer uses 8080, so it doesn't
+collide with a Keycloak instance running there). Before it'll work you need
+a real Keycloak reachable at the `KEYCLOAK_URL`/`KEYCLOAK_REALM`/
+`KEYCLOAK_CLIENT_ID` set in `docker-compose.yml` — point those at your
+existing Keycloak, create/confirm a client for this app, and set its
+redirect URI / web origin to `http://localhost:8090/*`.
+
+The navbar MFE is `public`, so it always mounts and shows a Login/Logout
+button. "Dashboard" requires being logged in (any role); "Settings"
+additionally requires the `admin` realm role — log in as a user without
+that role and the Settings link still routes, but nothing mounts into
+`#main`. Three throwaway nginx containers (`navbar-mfe`, `dashboard-mfe`,
+`settings-mfe`) stand in for real MFE deployments.
 
 To see config-only changes take effect: edit e.g. `mfes/settings.yaml`
 (change `activeWhen` or `customProps`), then:
@@ -75,7 +121,8 @@ npm run serve        # serves dist/ on :8080
 ## Adding a real MFE
 
 1. Deploy the MFE's SystemJS bundle somewhere reachable by browsers.
-2. Add `mfes/<name>.yaml` with `name`, `entry`, `container`, `activeWhen`.
+2. Add `mfes/<name>.yaml` with `name`, `entry`, `container`, `activeWhen`,
+   and `public`/`requiredRoles` if it needs to be gated by login or role.
 3. If it mounts into a new region, add a matching `<div id="...">` in
    `public/index.html` and rebuild the root-config image (layout shell
    changes are the one thing that still touches root-config's HTML).
@@ -88,9 +135,8 @@ npm run serve        # serves dist/ on :8080
 This is intentionally minimal. Natural next steps as you grow past a
 handful of MFEs:
 
-- **Schema validation** — swap the hand-rolled checks in
-  `build-mfe-config.js` for `ajv`/`zod` with a proper JSON schema, so
-  teams get precise error messages.
+- ~~Schema validation~~ — done: `build-mfe-config.js` validates every YAML
+  file against an `ajv` JSON schema.
 - **Per-environment overlays** — `mfes/prod/*.yaml`, `mfes/staging/*.yaml`,
   selected via `MFE_CONFIG_DIR`, instead of one shared set.
 - **Hot reload without a restart** — a file watcher (`chokidar`) that
