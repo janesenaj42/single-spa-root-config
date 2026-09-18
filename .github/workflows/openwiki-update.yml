@@ -1,0 +1,46 @@
+name: OpenWiki Update
+
+on:
+  schedule:
+    - cron: '0 2 * * 0' # weekly, Sunday 2 AM UTC
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install OpenWiki
+        run: npm install -g openwiki
+
+      - name: Update wiki
+        env:
+          OPENWIKI_PROVIDER: anthropic
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: openwiki --update
+
+      - name: Create PR if docs changed
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'docs: update OpenWiki'
+          title: 'docs: OpenWiki update'
+          branch: openwiki-update
+          delete-branch: true
+          token: ${{ secrets.OPENWIKI_PR_TOKEN }}
+
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number
+        run: gh pr merge --squash --auto ${{ steps.cpr.outputs.pull-request-number }}
+        env:
+          GH_TOKEN: ${{ secrets.OPENWIKI_PR_TOKEN }}
