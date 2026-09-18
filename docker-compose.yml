@@ -2,24 +2,34 @@ services:
   root-config:
     build: .
     ports:
-      # 8080 is left free for an external Keycloak instance (e.g. your
-      # existing webcore-web-keycloak container).
       - "8090:80"
     volumes:
       - ./mfes:/config/mfes:ro
     environment:
       - MFE_CONFIG_DIR=/config/mfes
       # Must be reachable from the BROWSER (not just other containers),
-      # since keycloak-js runs client-side. Point this at your real Keycloak.
-      - KEYCLOAK_URL=http://localhost:8080
-      - KEYCLOAK_REALM=change-me
+      # since keycloak-js runs client-side.
+      - KEYCLOAK_URL=http://localhost:8180
+      - KEYCLOAK_REALM=root-config-demo
       - KEYCLOAK_CLIENT_ID=root-config
-      # In Keycloak, this client needs http://localhost:8090/* in both
-      # "Valid redirect URIs" and "Web origins".
     depends_on:
+      - keycloak
       - navbar-mfe
       - dashboard-mfe
       - settings-mfe
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      # 8180, not 8080, so this doesn't collide with an unrelated Keycloak
+      # you might already have running on 8080 elsewhere on this machine.
+      - "8180:8080"
 
   navbar-mfe:
     image: nginx:1.27-alpine

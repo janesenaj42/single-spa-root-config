@@ -1,0 +1,56 @@
+{
+  "realm": "root-config-demo",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "user", "description": "Standard authenticated user" },
+      { "name": "admin", "description": "Full access, including the Settings MFE" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "root-config",
+      "name": "single-spa root config",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:8090/*"],
+      "webOrigins": ["http://localhost:8090"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "alice@example.com",
+      "firstName": "Alice",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["user", "admin"]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "bob@example.com",
+      "firstName": "Bob",
+      "lastName": "User",
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    }
+  ]
+}
