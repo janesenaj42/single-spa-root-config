@@ -1,0 +1,31 @@
+# ---- deps: runtime-only node_modules (js-yaml) for the config-merge script ----
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# ---- build: bundle root-config.js with esbuild ----
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build:js
+
+# ---- runtime: nginx serving the bundle, node available to regenerate mfes.json ----
+FROM node:20-alpine
+RUN apk add --no-cache nginx
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY scripts/build-mfe-config.js ./scripts/build-mfe-config.js
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENV MFE_CONFIG_DIR=/config/mfes
+ENV MFE_OUTPUT_FILE=/usr/share/nginx/html/mfes.json
+
+EXPOSE 80
+ENTRYPOINT ["/entrypoint.sh"]

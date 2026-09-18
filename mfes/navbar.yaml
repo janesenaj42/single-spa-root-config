@@ -1,0 +1,5 @@
+# Always-mounted shell navigation MFE.
+name: navbar
+entry: "http://localhost:8081/navbar.js"
+container: "#navbar"
+activeWhen: "/"

@@ -1,0 +1,4 @@
+name: dashboard
+entry: "http://localhost:8082/dashboard.js"
+container: "#main"
+activeWhen: "/dashboard"

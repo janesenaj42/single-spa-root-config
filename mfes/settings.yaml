@@ -1,0 +1,6 @@
+name: settings
+entry: "http://localhost:8083/settings.js"
+container: "#main"
+activeWhen: "/settings"
+customProps:
+  theme: dark
