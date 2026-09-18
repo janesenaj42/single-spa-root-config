@@ -7,15 +7,19 @@ script merges those files into a manifest the shell fetches at load time —
 so adding, removing, or repointing an MFE never touches root-config's
 JS/HTML, and 20 different teams can each own their own file.
 
-Fully containerized, with a working `docker compose` demo that includes a
-real Keycloak instance, three example MFEs, and three visibility tiers
-(public / any logged-in user / role-gated).
+Fully containerized, with a working `docker compose` demo — a warehouse
+operations shell — that exercises **four different layout patterns** (top
+navbar, full-page, floating drawer, floating widget) and **three
+visibility tiers** (public / any logged-in user / role-gated) against a
+real Keycloak instance.
 
 - [Quick start](#quick-start)
+- [Screenshots](#screenshots)
 - [How it works](#how-it-works)
 - [MFE config reference](#mfe-config-reference)
+- [Layout patterns](#layout-patterns)
 - [Authentication & role-based visibility](#authentication--role-based-visibility-keycloak)
-- [Project layout](#project-layout)
+- [Repo layout: core vs. examples](#repo-layout-core-vs-examples)
 - [Adding a real MFE](#adding-a-real-mfe)
 - [Development](#development)
 - [Scaling past the MVP](#scaling-past-the-mvp)
@@ -30,22 +34,54 @@ Give Keycloak ~10-15s to finish starting and importing its demo realm,
 then open **http://localhost:8090**. Check `docker compose logs keycloak`
 for `Realm 'root-config-demo' imported` if the login redirect errors out.
 
-The navbar MFE is public, so it always mounts and shows a Login/Logout
-button.
+The navbar and the comms bubble (bottom-right) are public, so they're
+always there.
 
 | Try it as | Password | You'll see |
 |---|---|---|
-| (stay logged out) | — | navbar only |
-| **bob** | `password` | navbar + dashboard |
-| **alice** | `password` | navbar + dashboard + settings |
+| (stay logged out) | — | navbar + comms bubble |
+| **bob** | `password` | + Assets page (`/assets`) |
+| **alice** | `password` | + Assets, + an "Admin" button in the navbar that opens a drawer |
 
-Three throwaway nginx containers (`navbar-mfe`, `dashboard-mfe`,
-`settings-mfe`) stand in for real MFE deployments — see
-[Adding a real MFE](#adding-a-real-mfe) to replace them with actual apps.
+Five throwaway nginx containers (`navbar-mfe`, `assets-mfe`,
+`admin-panel-mfe`, `comms-mfe`, plus `keycloak`) stand in for a real
+deployment — see [Adding a real MFE](#adding-a-real-mfe) to replace them.
 
-To see a config-only change take effect, edit e.g. `mfes/settings.yaml`
+To see a config-only change take effect, edit e.g. `mfes/admin-panel.yaml`
 then `docker compose restart root-config` — no rebuild needed, since
-`mfes/` is a mounted volume, not baked into the image.
+`mfes/` is a mounted volume, not baked into the image. Edit
+`public/index.html` and just refresh the browser — no restart either
+([ADR-0001](docs/adr/0001-mount-index-html-as-a-volume.md)).
+
+## Screenshots
+
+| Logged out | bob (authenticated) | alice (admin) |
+|---|---|---|
+| ![Logged out: navbar + comms bubble only](docs/screenshots/01-logged-out.png) | ![bob: navbar + Assets grid](docs/screenshots/02-bob-assets.png) | ![alice: navbar + Assets + Admin button](docs/screenshots/03-alice-assets.png) |
+
+| Admin drawer open | Comms widget open |
+|---|---|
+| ![Admin drawer sliding in from the right, 25% width](docs/screenshots/04-alice-admin-drawer.png) | ![Comms chat bubble expanded with a message and a canned reply](docs/screenshots/05-alice-comms-open.png) |
+
+Captured with a scripted Playwright run against the actual `docker compose`
+stack (not hand-curated), so they reflect real behavior, not intent.
+
+**Better ways to showcase this, if you want more than static images:**
+- **A short screen recording (GIF or MP4) of the Playwright run itself**
+  is the natural upgrade — it'd show the *transitions* static screenshots
+  can't (the drawer's slide-in, the worker dots jittering on the
+  blueprint, the chat's canned-reply delay). Same script, just record the
+  page instead of screenshotting it (Playwright supports video recording
+  natively via `recordVideo` on the browser context), then convert to GIF
+  with `ffmpeg`.
+- **A tiny hosted demo** (the compose stack deployed somewhere public,
+  or even just this repo + a "run in ~2 min" note) beats any recording
+  for someone who wants to click around themselves — screenshots/GIFs
+  go stale the moment a layout changes; a live instance can't.
+- **Percy/Chromatic-style visual regression snapshots** if you want these
+  screenshots to do double duty as a "did this layout change?" CI check,
+  not just documentation — same Playwright script, pointed at a
+  screenshot-diffing service instead of just saving PNGs.
 
 ## How it works
 
@@ -70,10 +106,10 @@ mfes/*.yaml  --(build-mfe-config.js)-->  dist/mfes.json  --(fetch)-->  root-conf
 ## MFE config reference
 
 ```yaml
-name: dashboard              # unique app name
-entry: "https://cdn.example.com/dashboard/dashboard.js"   # SystemJS bundle URL, loaded by the BROWSER
-container: "#main"           # CSS selector the app mounts into
-activeWhen: "/dashboard"     # single-spa route prefix (string or array)
+name: assets                 # unique app name
+entry: "https://cdn.example.com/assets/assets.js"   # SystemJS bundle URL, loaded by the BROWSER
+container: "#main"           # CSS selector the app mounts into (auto-created if missing - see Layout patterns)
+activeWhen: "/assets"        # single-spa route prefix (string or array)
 public: false                # optional, default false — see Authentication section
 requiredRoles:                # optional — Keycloak realm roles, ANY of which grant access
   - admin
@@ -86,6 +122,41 @@ address the user's **browser** can reach — not just something reachable
 inside a Docker network (see `docker-compose.yml`, which publishes each
 demo MFE on `localhost`).
 
+## Layout patterns
+
+The four warehouse MFEs deliberately exercise four different ways an MFE
+can occupy the page, to prove the config-driven approach isn't just for
+"one route = one full page":
+
+| Pattern | MFE | `container` | `activeWhen` |
+|---|---|---|---|
+| Top bar, in normal document flow | `navbar` | `#navbar` (pre-defined in `index.html`) | `/` (always) |
+| Full page | `assets` | `#main` (pre-defined in `index.html`) | `/assets` |
+| Floating drawer, 25% width | `admin-panel` | `#wh-admin-drawer` (**not** in `index.html`) | `/` (always mounted; visibility toggled internally, not by route) |
+| Floating widget (bottom-right) | `comms` | `#wh-comms-widget` (**not** in `index.html`) | `/` (always) |
+
+The two floating ones prove [ADR-0002](docs/adr/0002-auto-vivify-mfe-containers.md):
+root-config creates a missing container itself (appended to
+`document.body`) rather than requiring every MFE's mount point to
+pre-exist in `index.html`. Whether something reads as "full page" vs.
+"floating drawer" vs. "floating bubble" is entirely the MFE's own CSS
+(`position: fixed` + width/placement) — root-config doesn't know or care.
+
+The admin drawer's open/close trigger lives in the **navbar** MFE, not in
+the admin-panel MFE itself — a deliberate test of cross-MFE coordination,
+since single-spa MFEs can't call each other directly. That's handled by
+`src/eventBus.js` (`window` `CustomEvent`s, exposed to every MFE as
+`publish`/`subscribe` via `customProps`), which is an interim
+implementation with known gaps — see
+[ADR-0003](docs/adr/0003-interim-cross-mfe-event-bus.md) for what's
+missing and why it hasn't been replaced with a real pub/sub library yet.
+The comms widget, by contrast, is fully self-contained (owns both its
+own trigger icon and its own panel) and needs no cross-MFE messaging at
+all.
+
+See [CONTEXT.md](CONTEXT.md) for the vocabulary this section uses
+(layout region, auto-vivified container, drawer, cross-MFE event).
+
 ## Authentication & role-based visibility (Keycloak)
 
 Which MFEs are even eligible to mount depends on who's logged in, not
@@ -93,9 +164,9 @@ just the URL. Each MFE is one of three tiers, set in its YAML file:
 
 | Tier | YAML | Example |
 |---|---|---|
-| Public | `public: true` | `navbar` — always mounts, shows a Login/Logout button even for signed-out visitors |
-| All authenticated users | neither `public` nor `requiredRoles` set | `dashboard` — mounts for anyone logged in, regardless of role |
-| Selected users by role | `requiredRoles: [admin, finance]` | `settings` — only mounts if the user holds at least one of these Keycloak **realm roles** |
+| Public | `public: true` | `navbar`, `comms` — always mount, regardless of login state |
+| All authenticated users | neither `public` nor `requiredRoles` set | `assets` — mounts for anyone logged in, regardless of role |
+| Selected users by role | `requiredRoles: [admin, finance]` | `admin-panel` — only mounts if the user holds at least one of these Keycloak **realm roles** |
 
 `root-config.js` wraps each app's `activeWhen` in a function that checks,
 in order: the route still has to match, then `public` short-circuits to
@@ -107,9 +178,10 @@ unit tested in `test/routing.test.js`.)
 
 Auth itself is handled once, centrally, by `src/auth.js` using `keycloak-js`
 — individual MFEs never talk to Keycloak directly. Every MFE receives
-`isAuthenticated()`, `getToken()`, `login()`, `logout()` via `customProps`,
-so an MFE that needs to call a protected API can grab the bearer token
-without knowing anything about your Keycloak setup.
+`isAuthenticated()`, `hasAnyRole()`, `getToken()`, `login()`, `logout()`
+via `customProps`, so an MFE that needs to call a protected API — or just
+conditionally render something, like the navbar's Admin button — can do
+so without knowing anything about your Keycloak setup.
 
 The Keycloak client config (`url`, `realm`, `clientId`) is generated at
 container startup from `KEYCLOAK_URL` / `KEYCLOAK_REALM` /
@@ -122,8 +194,8 @@ needed" pattern as `mfes.json`. `KEYCLOAK_URL` must be reachable from the
 `docker-compose.yml` runs a real Keycloak (`quay.io/keycloak/keycloak`) on
 **8180** (not 8080, so it doesn't collide with an unrelated Keycloak you
 might already have running on this machine), and imports
-`keycloak/realm-export.json` on startup — no manual admin-console setup
-needed. That realm (`root-config-demo`) pre-seeds:
+`examples/keycloak/realm-export.json` on startup — no manual admin-console
+setup needed. That realm (`root-config-demo`) pre-seeds:
 
 - A public client `root-config` with redirect URI / web origin
   `http://localhost:8090/*` (PKCE, no client secret — this is a browser SPA).
@@ -142,34 +214,52 @@ to inspect or extend the realm.
 `KEYCLOAK_URL` / `KEYCLOAK_REALM` / `KEYCLOAK_CLIENT_ID` at your actual
 Keycloak instead of running one from this compose file.
 
-## Project layout
+## Repo layout: core vs. examples
 
 ```
-mfes/*.yaml                 One file per MFE — this is what teams actually edit day-to-day.
-src/root-config.js          Bootstraps single-spa: fetches mfes.json, registers every app.
-src/routing.js              Pure route + public/auth/role gating logic (unit tested).
-src/auth.js                 Centralized Keycloak client (keycloak-js).
-scripts/build-mfe-config.js Merges + ajv-validates mfes/*.yaml into dist/mfes.json.
-scripts/build-keycloak-config.js  Writes dist/keycloak.json from KEYCLOAK_* env vars.
-test/                       node --test unit tests for the two scripts above.
-demo-mfes/                  Three throwaway example MFEs used by the compose demo.
-keycloak/realm-export.json  Demo realm auto-imported by the Keycloak container.
-docker/                     nginx.conf + entrypoint.sh baked into the runtime image.
-Dockerfile                  3-stage build: deps -> esbuild bundle -> nginx + node runtime.
-docker-compose.yml          Full demo stack: root-config + Keycloak + 3 demo MFEs.
+CORE (the actual root-config engine — this is what you'd extract into your own project)
+├── src/root-config.js          Bootstraps single-spa: fetches mfes.json, registers every app.
+├── src/routing.js              Pure route + public/auth/role gating logic (unit tested).
+├── src/auth.js                 Centralized Keycloak client (keycloak-js).
+├── src/containers.js           Auto-vivifies a missing container div (ADR-0002, unit tested).
+├── src/eventBus.js             Interim cross-MFE pub/sub over window CustomEvents (ADR-0003, unit tested).
+├── scripts/build-mfe-config.js Merges + ajv-validates mfes/*.yaml into dist/mfes.json.
+├── scripts/build-keycloak-config.js  Writes dist/keycloak.json from KEYCLOAK_* env vars.
+├── test/                       node --test unit tests for the modules above.
+├── docker/                     nginx.conf + entrypoint.sh baked into the runtime image.
+├── Dockerfile                  3-stage build: deps -> esbuild bundle -> nginx + node runtime.
+├── mfes/*.yaml                 Where YOU register your MFEs (this repo's copy registers the example ones below).
+└── public/                     The layout shell (index.html) + Keycloak's silent-check-sso.html.
+
+EXAMPLES (throwaway scaffolding for the demo — not part of the product)
+├── examples/demo-mfes/         Four warehouse-themed MFEs exercising all 4 layout patterns.
+├── examples/keycloak/          Realm export auto-imported by the demo's Keycloak container.
+└── docker-compose.yml          Wires core + examples into one runnable stack (repo root, not under examples/,
+                                 since it's the thing you run - but everything it points at under examples/ is disposable).
+
+DOCS
+├── CONTEXT.md                  Glossary for the terms this README uses.
+└── docs/adr/                   Architecture decision records (why, not what).
 ```
+
+If you're adopting this for a real project: keep everything under `CORE`,
+delete everything under `EXAMPLES`, and replace `mfes/*.yaml` +
+`public/index.html`'s layout regions with your own.
 
 ## Adding a real MFE
 
 1. Deploy the MFE's SystemJS bundle somewhere reachable by browsers.
 2. Add `mfes/<name>.yaml` with `name`, `entry`, `container`, `activeWhen`,
    and `public`/`requiredRoles` if it needs to be gated by login or role.
-3. If it mounts into a new region, add a matching `<div id="...">` in
-   `public/index.html` and rebuild the root-config image (layout shell
-   changes are the one thing that still touches root-config's HTML).
-4. Restart the root-config container (or redeploy, if `mfes/` lives outside
-   the container image in your setup — e.g. synced from a git repo or
-   config service).
+3. If `container` doesn't already exist in `index.html`, root-config
+   creates it for you (appended to `<body>`) — fine for anything
+   positioned via CSS (floating widgets, drawers). If it needs a specific
+   place in normal document flow instead, add a matching `<div id="...">`
+   to `public/index.html` — no rebuild needed, just a restart-free file
+   edit ([ADR-0001](docs/adr/0001-mount-index-html-as-a-volume.md)).
+4. Restart the root-config container to pick up the new YAML (or
+   redeploy, if `mfes/` lives outside the container image in your setup —
+   e.g. synced from a git repo or config service).
 
 ## Development
 
@@ -180,6 +270,10 @@ npm run serve   # serves dist/ on :8080
 npm test        # node's built-in test runner
 npm run lint    # eslint
 ```
+
+Built and tested against Node 20 LTS; any current Node LTS should work
+fine given the project only uses long-stable APIs (native `EventTarget`/
+`CustomEvent`, `node:test`).
 
 ### Commit messages & releases
 
@@ -215,6 +309,10 @@ handful of MFEs:
 
 - ~~Schema validation~~ — done: `build-mfe-config.js` validates every YAML
   file against an `ajv` JSON schema.
+- **A real cross-MFE event bus** — see
+  [ADR-0003](docs/adr/0003-interim-cross-mfe-event-bus.md); the current
+  `window` `CustomEvent`s wrapper has no topic discovery and no async
+  composition. Pending a decision between `emittery` and RxJS.
 - **Per-environment overlays** — `mfes/prod/*.yaml`, `mfes/staging/*.yaml`,
   selected via `MFE_CONFIG_DIR`, instead of one shared set.
 - **Hot reload without a restart** — a file watcher (`chokidar`) that
