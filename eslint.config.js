@@ -4,7 +4,7 @@ import globals from 'globals';
 export default [
   js.configs.recommended,
   {
-    ignores: ['dist/**', 'node_modules/**', 'keycloak/**'],
+    ignores: ['dist/**', 'node_modules/**', '.venv/**', '.repowise/**'],
   },
   {
     // Root config source: bundled by esbuild, runs in the browser.

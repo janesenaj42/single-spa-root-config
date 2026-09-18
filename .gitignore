@@ -2,3 +2,13 @@ node_modules/
 dist/
 .env
 .DS_Store
+
+# Python venv for repowise (see README > Documentation tooling)
+.venv/
+
+# repowise's local generated index (caches, vector db, sqlite db) - the
+# human-readable output lives in docs/wiki/ via `repowise export`.
+.repowise/
+
+# session-specific lock file, meaningless outside the machine that wrote it
+.claude/scheduled_tasks.lock
