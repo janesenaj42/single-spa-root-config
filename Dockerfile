@@ -21,12 +21,16 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./package.json
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY scripts/build-mfe-config.js ./scripts/build-mfe-config.js
+COPY scripts/build-keycloak-config.js ./scripts/build-keycloak-config.js
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENV MFE_CONFIG_DIR=/config/mfes
 ENV MFE_OUTPUT_FILE=/usr/share/nginx/html/mfes.json
+ENV KEYCLOAK_OUTPUT_FILE=/usr/share/nginx/html/keycloak.json
+# KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID are required and have no
+# defaults - the container fails fast at startup if they're not supplied.
 
 EXPOSE 80
 ENTRYPOINT ["/entrypoint.sh"]
