@@ -1,9 +1,6 @@
 # single-spa root config, driven by YAML
 
 [![CI](https://github.com/janesenaj42/single-spa-root-config/actions/workflows/ci.yml/badge.svg)](https://github.com/janesenaj42/single-spa-root-config/actions/workflows/ci.yml)
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196.svg)](https://conventionalcommits.org)
-[![Node.js LTS](https://img.shields.io/badge/node-20%20LTS-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Docker Compose](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
 
 A `single-spa` root config where **registering a microfrontend is a YAML
 edit, not a code change**. Each MFE gets one YAML file describing its
