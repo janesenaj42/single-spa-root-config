@@ -1,5 +1,7 @@
-# Always-mounted shell navigation MFE.
+# Always-mounted shell navigation MFE. Public so it can render a
+# login/logout button even for signed-out visitors.
 name: navbar
 entry: "http://localhost:8081/navbar.js"
 container: "#navbar"
 activeWhen: "/"
+public: true

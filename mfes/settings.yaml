@@ -1,6 +1,9 @@
+# Only mounts for users holding the "admin" realm role.
 name: settings
 entry: "http://localhost:8083/settings.js"
 container: "#main"
 activeWhen: "/settings"
+requiredRoles:
+  - admin
 customProps:
   theme: dark

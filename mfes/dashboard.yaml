@@ -1,3 +1,4 @@
+# Any authenticated user, no specific role required.
 name: dashboard
 entry: "http://localhost:8082/dashboard.js"
 container: "#main"

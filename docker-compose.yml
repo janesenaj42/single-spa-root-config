@@ -2,11 +2,20 @@ services:
   root-config:
     build: .
     ports:
-      - "8080:80"
+      # 8080 is left free for an external Keycloak instance (e.g. your
+      # existing webcore-web-keycloak container).
+      - "8090:80"
     volumes:
       - ./mfes:/config/mfes:ro
     environment:
       - MFE_CONFIG_DIR=/config/mfes
+      # Must be reachable from the BROWSER (not just other containers),
+      # since keycloak-js runs client-side. Point this at your real Keycloak.
+      - KEYCLOAK_URL=http://localhost:8080
+      - KEYCLOAK_REALM=change-me
+      - KEYCLOAK_CLIENT_ID=root-config
+      # In Keycloak, this client needs http://localhost:8090/* in both
+      # "Valid redirect URIs" and "Web origins".
     depends_on:
       - navbar-mfe
       - dashboard-mfe
