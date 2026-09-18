@@ -1,6 +1,10 @@
 import { registerApplication, start } from 'single-spa';
 import { initAuth, isAuthenticated, hasAnyRole, getToken, login, logout } from './auth';
 import { isAppActive } from './routing';
+import { getOrCreateContainer } from './containers';
+import { createEventBus } from './eventBus';
+
+const eventBus = createEventBus(window);
 
 async function bootstrap() {
   await initAuth();
@@ -17,11 +21,14 @@ async function bootstrap() {
       app: () => System.import(app.entry),
       activeWhen: (location) => isAppActive(app, location.pathname, { isAuthenticated, hasAnyRole }),
       customProps: {
-        domElementGetter: () => document.querySelector(app.container),
+        domElementGetter: () => getOrCreateContainer(app.container),
         isAuthenticated,
+        hasAnyRole,
         getToken,
         login,
         logout,
+        publish: eventBus.publish,
+        subscribe: eventBus.subscribe,
         ...app.customProps,
       },
     });
