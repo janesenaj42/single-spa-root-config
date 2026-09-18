@@ -1,5 +1,6 @@
 # Always-mounted shell navigation MFE. Public so it can render a
-# login/logout button even for signed-out visitors.
+# login/logout button even for signed-out visitors, and always shows
+# the warehouse floor plan.
 name: navbar
 entry: "http://localhost:8081/navbar.js"
 container: "#navbar"

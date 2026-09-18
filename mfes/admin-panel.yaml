@@ -1,9 +1,10 @@
-# Only mounts for users holding the "admin" realm role.
-name: settings
-entry: "http://localhost:8083/settings.js"
-container: "#main"
-activeWhen: "/settings"
+# Floating drawer (25% width), auto-vivified container - no matching
+# div needed in index.html, see ADR-0002. Mounted app-wide (not tied to
+# a route) so it can be toggled open/closed from the navbar on any
+# page. Admin realm role only.
+name: admin-panel
+entry: "http://localhost:8083/admin-panel.js"
+container: "#wh-admin-drawer"
+activeWhen: "/"
 requiredRoles:
   - admin
-customProps:
-  theme: dark

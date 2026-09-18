@@ -1,0 +1,8 @@
+# Floating chat widget (public), auto-vivified container - no matching
+# div needed in index.html, see ADR-0002. Self-contained: owns both its
+# floating icon and the panel it expands into, no cross-MFE messaging.
+name: comms
+entry: "http://localhost:8084/comms.js"
+container: "#wh-comms-widget"
+activeWhen: "/"
+public: true

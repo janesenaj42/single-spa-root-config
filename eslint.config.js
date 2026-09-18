@@ -18,7 +18,7 @@ export default [
   {
     // Demo MFEs: raw SystemJS.register bundles loaded directly by the
     // browser, not ES modules.
-    files: ['demo-mfes/**/*.js'],
+    files: ['examples/demo-mfes/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'script',
