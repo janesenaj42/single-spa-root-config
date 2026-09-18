@@ -1,6 +1,7 @@
-# Full-page asset inventory (AG Grid). Any authenticated user, no
-# specific role required.
+# Full-screen takeover (AG Grid), dismissible via its own close button.
+# Auto-vivified container (not in index.html) - see ADR-0002. Any
+# authenticated user, no specific role required.
 name: assets
 entry: "http://localhost:8082/assets.js"
-container: "#main"
+container: "#wh-assets-overlay"
 activeWhen: "/assets"

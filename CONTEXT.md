@@ -16,7 +16,9 @@ _Avoid_: "permission level", "access level"
 **Layout region**:
 A named container element that exists in `public/index.html` before any
 MFE mounts, used for content that must sit at a specific place in normal
-document flow (e.g. `#navbar`, `#main`). Contrast with an auto-vivified
+document flow (e.g. `#navbar`, the only one left as `mfes/*.yaml` now
+prefers auto-vivified containers even for full-screen/backdrop MFEs).
+Contrast with an auto-vivified
 container.
 _Avoid_: "slot", "zone"
 

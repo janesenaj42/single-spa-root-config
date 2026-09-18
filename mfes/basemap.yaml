@@ -1,0 +1,8 @@
+# Full-viewport base layer (the warehouse floor plan + worker dots),
+# auto-vivified container - see ADR-0002. Sits at z-index 0, behind
+# everything else, always mounted.
+name: basemap
+entry: "http://localhost:8085/basemap.js"
+container: "#wh-basemap"
+activeWhen: "/"
+public: true

@@ -40,11 +40,17 @@ System.register([], function (exports) {
         bootstrap: async () => {},
         mount: async (props) => {
           const el = props.domElementGetter();
+          // Full-screen takeover, not an in-flow content panel: covers the
+          // navbar and basemap too, dismissed only via the close button
+          // (or any other in-app navigation away from /assets).
           el.style.cssText =
-            'display:block;min-height:600px;padding:16px;box-sizing:border-box;background:#0b1220;font-family:sans-serif;';
+            'position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;background:#0b1220;font-family:sans-serif;';
           el.innerHTML = `
-            <h1 style="color:#e2e8f0;margin:0 0 12px;">Asset Management</h1>
-            <div id="wh-assets-grid" style="height:520px;width:100%;"></div>
+            <div style="display:flex;align-items:center;padding:16px;border-bottom:1px solid #1f2937;">
+              <h1 style="color:#e2e8f0;margin:0;font-size:20px;flex:1;">Asset Management</h1>
+              <a href="/" aria-label="Close" style="color:#e2e8f0;text-decoration:none;font-size:24px;line-height:1;padding:4px 10px;">&times;</a>
+            </div>
+            <div id="wh-assets-grid" style="flex:1;width:100%;"></div>
           `;
 
           await ensureAgGridLoaded();
