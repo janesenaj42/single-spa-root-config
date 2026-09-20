@@ -52,6 +52,42 @@ it just loops over `mfes.json` and calls `registerApplication()`. Adding,
 removing, or repointing an MFE is a YAML edit; a bad one fails loudly at
 startup (`ajv` schema validation) instead of silently breaking the shell.
 
+<details>
+<summary>Why no rebuild is needed (container start → browser runtime)</summary>
+
+The image itself is generic — it contains no baked-in MFE data. The
+`mfes/*.yaml` → `mfes.json` merge happens at **container start**, not
+at build time:
+
+1. **Build time (once):** `npm run build:js` bundles `src/root-config.js`
+   into `dist/root-config.js`. This bundle has no app names, entries, or
+   routes compiled into it.
+2. **Container start (`bootstrap.js`, the image's `ENTRYPOINT`):** before
+   nginx is even started, `bootstrap.js` reads every `*.yaml` file from
+   `MFE_CONFIG_DIR` (`/config/mfes`, a mounted volume), validates each one
+   against an `ajv` schema via `loadConfigs()`
+   ([scripts/build-mfe-config.js](scripts/build-mfe-config.js)), and
+   writes the merged array to `MFE_OUTPUT_FILE` —
+   `/usr/share/nginx/html/mfes.json` — nginx's static web root. Only then
+   does it `spawn` nginx. (Keycloak config is generated the same way, from
+   `KEYCLOAK_URL`/`KEYCLOAK_REALM`/`KEYCLOAK_CLIENT_ID` env vars, into
+   `keycloak.json`.)
+3. **Browser runtime:** `root-config.js` does
+   `fetch('/mfes.json', { cache: 'no-store' })` on load, then for each
+   entry calls `registerApplication()`, dynamically importing the MFE's
+   actual JS via `System.import(app.entry)` — so the MFE code itself also
+   loads from wherever `entry` points, not from this image. Routing is
+   evaluated by `isAppActive()` ([src/routing.js](src/routing.js)): a
+   route match against `activeWhen`, then the public/role check.
+
+Net effect: since the fleet of MFEs, their routes, and their auth rules
+all live in files/env vars mounted or injected at container start (not
+compiled into the image), changing them is a YAML edit + container
+restart — never a rebuild. The image is reusable as-is across
+environments and MFE sets.
+
+</details>
+
 ## Configuring an MFE
 
 One YAML file per MFE, in `mfes/`:
